@@ -336,34 +336,7 @@ def generate_interview_questions(tokenizer, model, DEVICE, job_title, matched_sk
     
     return list(dict.fromkeys(questions))[:num_questions]
 
-# --- Load Pre-existing Data ---
-@st.cache_data
-def load_jobs_data():
-    # Sample job data
-    data = {
-        'Title': [
-            'Data Scientist',
-            'Machine Learning Engineer',
-            'Software Engineer',
-            'Data Analyst',
-            'DevOps Engineer',
-            'Full Stack Developer',
-            'Business Analyst',
-            'Cloud Architect'
-        ],
-        'Keywords': [
-            'Python; SQL; Machine Learning; Deep Learning; R; Data Visualization; NLP; PyTorch',
-            'Python; TensorFlow; PyTorch; Docker; Kubernetes; AWS; MLflow; Data Modeling',
-            'Java; Python; C++; Git; CI/CD; Data Structures; Algorithms; Microservices',
-            'SQL; Excel; Python; Tableau; Power BI; Data Analysis; Statistics; Communication',
-            'AWS; Docker; Kubernetes; Terraform; CI/CD; Python; Linux; Monitoring',
-            'JavaScript; React; Node.js; Python; MongoDB; Express; REST API; Git',
-            'SQL; Excel; Tableau; Communication; Problem Solving; R; Project Management',
-            'AWS; Azure; Google Cloud; Terraform; Python; Kubernetes; Networking; Security'
-        ]
-    }
-    return pd.DataFrame(data)
-
+# --- Load Sample Resume ---
 @st.cache_data
 def load_sample_resume():
     # Sample resume text as bytes
@@ -424,99 +397,7 @@ with st.sidebar:
     run_btn = st.button("🚀 Analyze & Match", type="primary", use_container_width=True)
 
 # Main Area
-if run_btn:
-    # Step 1: Load data
-    if use_preloaded:
-        jobs_df = load_jobs_data()
-        resume_bytes = load_sample_resume()
-    else:
-        if jobs_file is None or resume_file is None:
-            st.error("Please upload both a jobs dataset and a resume!")
-            st.stop()
-        jobs_df = pd.read_csv(jobs_file)
-        resume_bytes = resume_file
-    
-    # Step 2: Processing
-    with st.status("🔮 Analyzing Your Profile...", expanded=True) as status:
-        st.write("Loading AI Models...")
-        nlp = load_spacy()
-        sbert_model = load_sbert()
-        q_tokenizer, q_model, DEVICE = load_flan_t5()
-        
-        st.write("Processing Jobs Database...")
-        skills_col = "Keywords" if "Keywords" in jobs_df.columns else "Skills" if "Skills" in jobs_df.columns else "skills"
-        jobs_df['skills_list'] = jobs_df[skills_col].apply(parse_skills)
-        if "Title" in jobs_df.columns:
-            jobs_df = jobs_df.drop_duplicates(subset=["Title"])
-        
-        all_skills = sorted(set(skill for skills in jobs_df['skills_list'] for skill in skills))
-        skill_vocab_embeddings = sbert_model.encode(all_skills, convert_to_tensor=True)
-        matcher = build_matcher(nlp, all_skills)
-
-        st.write("Extracting details from Resume...")
-        resume_text = extract_text_from_pdf(resume_bytes)
-        candidate_phrases = extract_candidate_phrases(resume_text, nlp, matcher)
-        canonical_resume_skills = normalize_to_canonical_skills(candidate_phrases, all_skills, skill_vocab_embeddings, sbert_model, threshold=0.60)
-        
-        st.write("Finding the perfect matches...")
-        top3_df = recommend_top_jobs(canonical_resume_skills, jobs_df, sbert_model, top_n=3)
-        
-        status.update(label="Analysis Complete! ✨", state="complete", expanded=False)
-        
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.header("🏆 Your Top Job Matches")
-    
-    # Step 3: Display Results
-    for idx, row in top3_df.iterrows():
-        score_pct = int(row['hybrid_score'] * 100)
-        
-        matched_html = "".join([f'<span class="skill-badge matched-skill">{s}</span>' for s in row['matched_skills']])
-        missing_html = "".join([f'<span class="skill-badge missing-skill">{s}</span>' for s in row['missing_skills']])
-        
-        if not matched_html: matched_html = "<span style='color:#94a3b8;'>No exact matches found.</span>"
-        if not missing_html: missing_html = "<span style='color:#94a3b8;'>You have all required skills! 🎉</span>"
-
-        st.markdown(f"""
-        <div class="job-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <h2 style="margin: 0; padding-bottom: 10px;">#{idx+1} {row['job_title']}</h2>
-                <div class="match-container">
-                    <span class="match-score">{score_pct}%</span>
-                    <span style="color: #6ee7b7; font-weight: 600;">Match</span>
-                </div>
-            </div>
-            <hr>
-            <div style="display: flex; gap: 40px; flex-wrap: wrap;">
-                <div style="flex: 1; min-width: 300px;">
-                    <h4 style="color: #6ee7b7; margin-bottom: 15px; display: flex; align-items: center;">
-                        <span style="font-size: 1.5rem; margin-right: 8px;">✅</span> Your Strengths
-                    </h4>
-                    <div style="line-height: 2;">{matched_html}</div>
-                </div>
-                <div style="flex: 1; min-width: 300px;">
-                    <h4 style="color: #fca5a5; margin-bottom: 15px; display: flex; align-items: center;">
-                        <span style="font-size: 1.5rem; margin-right: 8px;">⚠️</span> Skills to Develop
-                    </h4>
-                    <div style="line-height: 2;">{missing_html}</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("### 🎯 AI Interview Coach")
-        with st.spinner(f"Preparing custom questions for {row['job_title']}..."):
-            questions = generate_interview_questions(
-                q_tokenizer, q_model, DEVICE, 
-                row['job_title'], row['matched_skills'], row['missing_skills'], canonical_resume_skills, 
-                num_questions=5, question_type=q_type
-            )
-            
-            for i, q in enumerate(questions, 1):
-                st.markdown(f'<div class="question-box"><strong>Q{i}:</strong> {q}</div>', unsafe_allow_html=True)
-        
-        st.markdown("<br><br>", unsafe_allow_html=True)
-
-else:
+if not run_btn:
     # Display initial message with sample data option
     st.markdown("""
         <div style='text-align: center; padding: 100px 20px;'>
@@ -527,3 +408,124 @@ else:
             </p>
         </div>
     """, unsafe_allow_html=True)
+else:
+    # Load data based on user selection
+    with st.status("🔮 Analyzing Your Profile...", expanded=True) as status:
+        try:
+            st.write("Loading AI Models...")
+            nlp = load_spacy()
+            sbert_model = load_sbert()
+            q_tokenizer, q_model, DEVICE = load_flan_t5()
+            
+            st.write("Processing Jobs Database...")
+            
+            # Load jobs data
+            if use_preloaded or jobs_file is None:
+                # Use sample jobs dataset
+                try:
+                    # Try to load from a sample jobs dataset
+                    # If you have a sample jobs dataset file, you can load it here
+                    # For now, let's create a sample jobs dataset
+                    sample_jobs = {
+                        'Title': [
+                            'Data Scientist',
+                            'Machine Learning Engineer',
+                            'Software Engineer',
+                            'Data Analyst',
+                            'DevOps Engineer'
+                        ],
+                        'Keywords': [
+                            'Python;SQL;Machine Learning;Deep Learning;NLP;PyTorch;TensorFlow;Docker;AWS',
+                            'Python;SQL;Machine Learning;Deep Learning;PyTorch;TensorFlow;Docker;Kubernetes;AWS;GCP',
+                            'Python;Java;C++;Git;Docker;Kubernetes;AWS;CI/CD;SQL;Microservices',
+                            'Python;SQL;Tableau;Power BI;Data Visualization;Statistics;Excel;R',
+                            'Python;AWS;Docker;Kubernetes;CI/CD;Linux;Terraform;Ansible;Jenkins'
+                        ]
+                    }
+                    jobs_df = pd.DataFrame(sample_jobs)
+                    resume_bytes = load_sample_resume()
+                except Exception as e:
+                    st.error(f"Error loading sample jobs data: {str(e)}")
+                    st.stop()
+            else:
+                # Load uploaded jobs dataset
+                jobs_df = pd.read_csv(jobs_file)
+                # Load uploaded resume
+                resume_bytes = resume_file
+            
+            # Process skills
+            skills_col = "Keywords" if "Keywords" in jobs_df.columns else "Skills" if "Skills" in jobs_df.columns else "skills"
+            jobs_df['skills_list'] = jobs_df[skills_col].apply(parse_skills)
+            if "Title" in jobs_df.columns:
+                jobs_df = jobs_df.drop_duplicates(subset=["Title"])
+            
+            all_skills = sorted(set(skill for skills in jobs_df['skills_list'] for skill in skills))
+            skill_vocab_embeddings = sbert_model.encode(all_skills, convert_to_tensor=True)
+            matcher = build_matcher(nlp, all_skills)
+
+            st.write("Extracting details from Resume...")
+            resume_text = extract_text_from_pdf(resume_bytes)
+            candidate_phrases = extract_candidate_phrases(resume_text, nlp, matcher)
+            canonical_resume_skills = normalize_to_canonical_skills(candidate_phrases, all_skills, skill_vocab_embeddings, sbert_model, threshold=0.60)
+            
+            st.write("Finding the perfect matches...")
+            top3_df = recommend_top_jobs(canonical_resume_skills, jobs_df, sbert_model, top_n=3)
+            
+            status.update(label="Analysis Complete! ✨", state="complete", expanded=False)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.header("🏆 Your Top Job Matches")
+            
+            # Step 3: Display Results
+            for idx, row in top3_df.iterrows():
+                score_pct = int(row['hybrid_score'] * 100)
+                
+                matched_html = "".join([f'<span class="skill-badge matched-skill">{s}</span>' for s in row['matched_skills']])
+                missing_html = "".join([f'<span class="skill-badge missing-skill">{s}</span>' for s in row['missing_skills']])
+                
+                if not matched_html: matched_html = "<span style='color:#94a3b8;'>No exact matches found.</span>"
+                if not missing_html: missing_html = "<span style='color:#94a3b8;'>You have all required skills! 🎉</span>"
+
+                st.markdown(f"""
+                <div class="job-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                        <h2 style="margin: 0; padding-bottom: 10px;">#{idx+1} {row['job_title']}</h2>
+                        <div class="match-container">
+                            <span class="match-score">{score_pct}%</span>
+                            <span style="color: #6ee7b7; font-weight: 600;">Match</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div style="display: flex; gap: 40px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 300px;">
+                            <h4 style="color: #6ee7b7; margin-bottom: 15px; display: flex; align-items: center;">
+                                <span style="font-size: 1.5rem; margin-right: 8px;">✅</span> Your Strengths
+                            </h4>
+                            <div style="line-height: 2;">{matched_html}</div>
+                        </div>
+                        <div style="flex: 1; min-width: 300px;">
+                            <h4 style="color: #fca5a5; margin-bottom: 15px; display: flex; align-items: center;">
+                                <span style="font-size: 1.5rem; margin-right: 8px;">⚠️</span> Skills to Develop
+                            </h4>
+                            <div style="line-height: 2;">{missing_html}</div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("### 🎯 AI Interview Coach")
+                with st.spinner(f"Preparing custom questions for {row['job_title']}..."):
+                    questions = generate_interview_questions(
+                        q_tokenizer, q_model, DEVICE, 
+                        row['job_title'], row['matched_skills'], row['missing_skills'], canonical_resume_skills, 
+                        num_questions=5, question_type=q_type
+                    )
+                    
+                    for i, q in enumerate(questions, 1):
+                        st.markdown(f'<div class="question-box"><strong>Q{i}:</strong> {q}</div>', unsafe_allow_html=True)
+                
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                
+        except Exception as e:
+            st.error(f"An error occurred during analysis: {str(e)}")
+            st.stop()
