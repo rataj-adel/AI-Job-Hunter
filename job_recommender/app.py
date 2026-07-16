@@ -9,7 +9,6 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import re
 import time
-import io
 
 # --- Page Config ---
 st.set_page_config(page_title="AI Resume Matcher", page_icon="✨", layout="wide", initial_sidebar_state="expanded")
@@ -236,43 +235,6 @@ def load_sample_jobs_data():
     }
     return pd.DataFrame(jobs_data)
 
-# --- Load Sample Resume ---
-@st.cache_data
-def load_sample_resume():
-    """تحميل سيرة ذاتية نموذجية"""
-    sample_text = """
-    PROFESSIONAL SUMMARY
-    Experienced Data Scientist with 5+ years of experience in machine learning, deep learning, and data analysis. 
-    Strong background in Python, SQL, and cloud technologies. Passionate about NLP and computer vision applications.
-
-    TECHNICAL SKILLS
-    Python, SQL, Machine Learning, Deep Learning, NLP, PyTorch, TensorFlow, Docker, AWS, Data Visualization,
-    Tableau, R, Git, CI/CD, Data Analysis, Statistics, Big Data, Spark
-
-    PROFESSIONAL EXPERIENCE
-
-    Senior Data Scientist | TechCorp | 2021-Present
-    • Developed and deployed machine learning models for customer churn prediction using PyTorch and AWS
-    • Built ETL pipelines for processing large-scale data using Spark and SQL
-    • Implemented NLP solutions for sentiment analysis and text classification
-    • Collaborated with cross-functional teams to deliver data-driven insights
-
-    Data Scientist | DataViz Inc | 2019-2021
-    • Created interactive dashboards using Tableau and Power BI
-    • Performed statistical analysis and A/B testing
-    • Wrote complex SQL queries for data extraction and analysis
-    • Developed predictive models using scikit-learn and XGBoost
-
-    EDUCATION
-    M.S. in Computer Science | Stanford University | 2019
-    B.S. in Mathematics | MIT | 2017
-
-    CERTIFICATIONS
-    AWS Certified Solutions Architect
-    Google Professional Data Engineer
-    """
-    return io.BytesIO(sample_text.encode('utf-8'))
-
 # --- Cached Model Loading ---
 @st.cache_resource
 def load_spacy():
@@ -306,9 +268,11 @@ def parse_skills(s):
         return [str(x).strip() for x in s if str(x).strip()]
     return [x.strip() for x in str(s).split(';') if x.strip()]
 
-def extract_text_from_pdf(file_bytes):
+def extract_text_from_pdf(uploaded_file):
+    """استخراج النص من ملف PDF مرفوع"""
+    uploaded_file.seek(0)
     text = ""
-    with pdfplumber.open(file_bytes) as pdf:
+    with pdfplumber.open(uploaded_file) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
             if page_text:
@@ -450,23 +414,28 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/942/942748.png", width=60)
     st.header("📂 Data Source")
     
-    # اختيار مصدر البيانات
+    # اختيار مصدر البيانات - Use Sample Jobs Dataset
     use_preloaded = st.checkbox(
-        "Use Sample Data", 
-        value=True, 
-        help="Use pre-loaded sample jobs dataset and resume"
+        "Use Sample Jobs Dataset", 
+        value=True,  # يبدأ البرنامج من غير Sample Jobs
+        help="Use pre-loaded sample jobs dataset (30 job positions)"
     )
     
-    if not use_preloaded:
-        st.markdown("---")
-        st.subheader("📤 Upload Your Data")
-        jobs_file = st.file_uploader("📂 Jobs Dataset (CSV)", type="csv")
-        resume_file = st.file_uploader("📄 Resume (PDF)", type="pdf")
-    else:
+    if use_preloaded:
         jobs_file = None
-        resume_file = None
-        st.success("✅ Using sample data (30 jobs + sample resume)")
-        st.info("📊 Sample resume: Data Scientist with ML/AI skills")
+        st.success("✅ Using sample jobs dataset (30 positions)")
+    else:
+        jobs_file = st.file_uploader("📂 Upload Jobs Dataset (CSV)", type="csv")
+    
+    st.markdown("---")
+    st.header("📄 Resume Upload")
+    
+    # رفع الـ Resume في كل الحالات (خارج الـ if)
+    resume_file = st.file_uploader(
+        "📄 Upload Your Resume (PDF)", 
+        type="pdf",
+        help="Upload your resume in PDF format"
+    )
     
     st.markdown("---")
     st.header("⚙️ Settings")
@@ -483,7 +452,7 @@ if not analyze_btn:
             <img src='https://cdn-icons-png.flaticon.com/512/2065/2065157.png' width='120' style='opacity: 0.5; margin-bottom: 20px;'/>
             <h2 style='color: #64748b;'>Ready to find your dream job</h2>
             <p style='color: #475569; font-size: 1.1rem;'>
-                Choose your data source in the sidebar and click "Analyze & Match"
+                Upload your resume (PDF) and choose data source in the sidebar, then click "Analyze & Match"
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -496,21 +465,21 @@ else:
             sbert_model = load_sbert()
             q_tokenizer, q_model, DEVICE = load_flan_t5()
             
-            # --- تحميل البيانات (زي ما انت عاوزة بالظبط) ---
+            # --- تحميل Jobs Dataset ---
             if use_preloaded:
                 st.write("📊 Loading sample jobs dataset...")
                 jobs_df = load_sample_jobs_data()
-                st.write("📄 Loading sample resume...")
-                resume_bytes = load_sample_resume()
             else:
-                # التحقق من رفع الملفات
-                if jobs_file is None or resume_file is None:
-                    st.error("❌ Please upload both a jobs dataset and a resume!")
+                if jobs_file is None:
+                    st.error("❌ Please upload a jobs dataset!")
                     st.stop()
                 st.write("📊 Loading uploaded jobs dataset...")
                 jobs_df = pd.read_csv(jobs_file)
-                st.write("📄 Loading uploaded resume...")
-                resume_bytes = resume_file
+            
+            # --- التحقق من رفع الـ Resume ---
+            if resume_file is None:
+                st.error("❌ Please upload your resume!")
+                st.stop()
             
             # --- معالجة البيانات ---
             # Process skills
@@ -524,12 +493,8 @@ else:
             matcher = build_matcher(nlp, all_skills)
 
             st.write("📄 Extracting details from Resume...")
-            # قراءة محتوى الـ Resume
-            if isinstance(resume_bytes, io.BytesIO):
-                resume_text = extract_text_from_pdf(resume_bytes)
-            else:
-                # إذا كان ملف مرفوع
-                resume_text = extract_text_from_pdf(io.BytesIO(resume_bytes.getvalue()))
+            # قراءة محتوى الـ Resume مباشرة من الملف المرفوع
+            resume_text = extract_text_from_pdf(resume_file)
             
             candidate_phrases = extract_candidate_phrases(resume_text, nlp, matcher)
             canonical_resume_skills = normalize_to_canonical_skills(candidate_phrases, all_skills, skill_vocab_embeddings, sbert_model, threshold=0.60)
@@ -543,7 +508,9 @@ else:
             
             # --- عرض النتائج ---
             if use_preloaded:
-                st.success(f"✅ Using sample data: {len(jobs_df)} jobs analyzed")
+                st.success(f"✅ Using sample jobs dataset: {len(jobs_df)} job positions analyzed")
+            else:
+                st.success(f"✅ Using uploaded jobs dataset: {len(jobs_df)} job positions analyzed")
             
             st.header("🏆 Your Top Job Matches")
             
