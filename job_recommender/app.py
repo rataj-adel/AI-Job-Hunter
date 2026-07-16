@@ -162,7 +162,116 @@ st.markdown("""
 
 # --- Title Section ---
 st.title("✨ AI Resume Matcher & Interview Prep")
-st.markdown("<p style='font-size: 1.2rem; color: #94a3b8; margin-bottom: 40px;'>Upload your resume and explore job matches with AI-generated interview questions.</p>", unsafe_allow_html=True)
+st.markdown("<p style='font-size: 1.2rem; color: #94a3b8; margin-bottom: 40px;'>Upload your resume and get matched with top job opportunities!</p>", unsafe_allow_html=True)
+
+# --- Load Sample Jobs Dataset (مدمج في الكود) ---
+@st.cache_data
+def load_sample_jobs_data():
+    """تحميل قاعدة بيانات الوظائف النموذجية"""
+    jobs_data = {
+        'Title': [
+            'Data Scientist',
+            'Machine Learning Engineer',
+            'Software Engineer',
+            'Data Analyst',
+            'DevOps Engineer',
+            'Cloud Architect',
+            'AI Research Scientist',
+            'Backend Developer',
+            'Frontend Developer',
+            'Full Stack Developer',
+            'Product Manager',
+            'UX/UI Designer',
+            'Business Analyst',
+            'Data Engineer',
+            'Site Reliability Engineer',
+            'Security Engineer',
+            'Network Engineer',
+            'Database Administrator',
+            'Mobile Developer (iOS)',
+            'Mobile Developer (Android)',
+            'Game Developer',
+            'Embedded Systems Engineer',
+            'Robotics Engineer',
+            'NLP Engineer',
+            'Computer Vision Engineer',
+            'Healthcare Data Scientist',
+            'Financial Analyst',
+            'Marketing Analyst',
+            'Supply Chain Analyst',
+            'HR Analytics Specialist'
+        ],
+        'Keywords': [
+            'Python;SQL;Machine Learning;Deep Learning;NLP;PyTorch;TensorFlow;Docker;AWS;Data Visualization;Statistics',
+            'Python;SQL;Machine Learning;Deep Learning;PyTorch;TensorFlow;Docker;Kubernetes;AWS;GCP;MLOps;CI/CD',
+            'Python;Java;C++;Git;Docker;Kubernetes;AWS;CI/CD;SQL;Microservices;REST APIs;System Design',
+            'Python;SQL;Tableau;Power BI;Data Visualization;Statistics;Excel;R;Business Intelligence;Dashboard',
+            'Python;AWS;Docker;Kubernetes;CI/CD;Linux;Terraform;Ansible;Jenkins;Monitoring;Cloud;Automation',
+            'AWS;Azure;GCP;Cloud Computing;Docker;Kubernetes;Terraform;Python;Security;Networking;Microservices',
+            'Python;Machine Learning;Deep Learning;NLP;PyTorch;TensorFlow;Research;Mathematics;Statistics;Data Analysis',
+            'Python;Java;SQL;Git;Docker;REST APIs;Microservices;Spring Boot;Hibernate;AWS;PostgreSQL;MongoDB',
+            'JavaScript;React;HTML;CSS;TypeScript;Redux;Next.js;Vue.js;Webpack;UI/UX;Git;REST APIs',
+            'JavaScript;Python;React;Node.js;MongoDB;SQL;REST APIs;Git;Docker;AWS;TypeScript;HTML;CSS',
+            'Product Management;Agile;Scrum;JIRA;Analytics;UX;Market Research;Strategy;Communication;Leadership',
+            'Figma;Adobe XD;UI/UX Design;Prototyping;Sketch;Wireframing;User Research;Design Thinking;HTML;CSS',
+            'SQL;Excel;Python;Business Intelligence;Power BI;Tableau;Data Analysis;Reporting;Requirements Gathering',
+            'Python;SQL;Data Warehousing;ETL;Spark;Hadoop;AWS;Redshift;Airflow;Kafka;Data Modeling;Big Data',
+            'Linux;AWS;Kubernetes;Docker;Python;Monitoring;CI/CD;Git;Networking;Automation;Incident Management',
+            'Security;Python;Network Security;Penetration Testing;Firewall;Cryptography;AWS Security;ISO 27001',
+            'Networking;TCP/IP;Routers;Switches;Firewalls;Linux;Cisco;Cloud Networking;Load Balancers;DNS',
+            'SQL;Database Administration;Oracle;MySQL;PostgreSQL;MongoDB;Data Modeling;Backup;Performance Tuning',
+            'Swift;iOS Development;Xcode;UIKit;Core Data;REST APIs;Git;App Store;Mobile Development;UI/UX',
+            'Kotlin;Android Development;Android Studio;Room;REST APIs;Firebase;Git;Mobile Development;UI/UX',
+            'C++;Unity;Game Development;3D Modeling;Animation;Unreal Engine;Game Design;Python;Physics',
+            'C;C++;Embedded Systems;Microcontrollers;RTOS;IoT;Python;Hardware;Linux;Firmware',
+            'Python;C++;Robotics;ROS;Computer Vision;Machine Learning;Sensor Fusion;Control Systems;MATLAB',
+            'Python;NLP;Machine Learning;Deep Learning;PyTorch;TensorFlow;Transformers;Language Models;Data Science',
+            'Python;Computer Vision;Deep Learning;PyTorch;TensorFlow;Image Processing;OpenCV;Neural Networks',
+            'Python;SQL;Healthcare;Machine Learning;Data Analysis;Statistics;Medical Imaging;Bioinformatics;R',
+            'SQL;Excel;Python;Financial Analysis;Statistics;Data Visualization;Power BI;Tableau;Reporting',
+            'SQL;Excel;Python;Marketing Analytics;Data Analysis;Google Analytics;Power BI;Tableau;Statistics',
+            'SQL;Excel;Python;Data Analysis;Supply Chain;Logistics;Operations;Power BI;Tableau;Statistics',
+            'SQL;Python;HR Analytics;Data Analysis;Statistics;Power BI;Tableau;Excel;Reporting;People Analytics'
+        ]
+    }
+    return pd.DataFrame(jobs_data)
+
+# --- Load Sample Resume ---
+@st.cache_data
+def load_sample_resume():
+    """تحميل سيرة ذاتية نموذجية"""
+    sample_text = """
+    PROFESSIONAL SUMMARY
+    Experienced Data Scientist with 5+ years of experience in machine learning, deep learning, and data analysis. 
+    Strong background in Python, SQL, and cloud technologies. Passionate about NLP and computer vision applications.
+
+    TECHNICAL SKILLS
+    Python, SQL, Machine Learning, Deep Learning, NLP, PyTorch, TensorFlow, Docker, AWS, Data Visualization,
+    Tableau, R, Git, CI/CD, Data Analysis, Statistics, Big Data, Spark
+
+    PROFESSIONAL EXPERIENCE
+
+    Senior Data Scientist | TechCorp | 2021-Present
+    • Developed and deployed machine learning models for customer churn prediction using PyTorch and AWS
+    • Built ETL pipelines for processing large-scale data using Spark and SQL
+    • Implemented NLP solutions for sentiment analysis and text classification
+    • Collaborated with cross-functional teams to deliver data-driven insights
+
+    Data Scientist | DataViz Inc | 2019-2021
+    • Created interactive dashboards using Tableau and Power BI
+    • Performed statistical analysis and A/B testing
+    • Wrote complex SQL queries for data extraction and analysis
+    • Developed predictive models using scikit-learn and XGBoost
+
+    EDUCATION
+    M.S. in Computer Science | Stanford University | 2019
+    B.S. in Mathematics | MIT | 2017
+
+    CERTIFICATIONS
+    AWS Certified Solutions Architect
+    Google Professional Data Engineer
+    """
+    return io.BytesIO(sample_text.encode('utf-8'))
 
 # --- Cached Model Loading ---
 @st.cache_resource
@@ -336,123 +445,74 @@ def generate_interview_questions(tokenizer, model, DEVICE, job_title, matched_sk
     
     return list(dict.fromkeys(questions))[:num_questions]
 
-# --- Load Sample Resume ---
-@st.cache_data
-def load_sample_resume():
-    # Sample resume text as bytes
-    sample_text = """
-    PROFESSIONAL SUMMARY
-    Experienced Data Scientist with 5+ years of experience in machine learning, deep learning, and data analysis. 
-    Strong background in Python, SQL, and cloud technologies. Passionate about NLP and computer vision applications.
-
-    TECHNICAL SKILLS
-    Python, SQL, Machine Learning, Deep Learning, NLP, PyTorch, TensorFlow, Docker, AWS, Data Visualization,
-    Tableau, R, Git, CI/CD, Data Analysis, Statistics, Big Data, Spark
-
-    PROFESSIONAL EXPERIENCE
-
-    Senior Data Scientist | TechCorp | 2021-Present
-    • Developed and deployed machine learning models for customer churn prediction using PyTorch and AWS
-    • Built ETL pipelines for processing large-scale data using Spark and SQL
-    • Implemented NLP solutions for sentiment analysis and text classification
-    • Collaborated with cross-functional teams to deliver data-driven insights
-
-    Data Scientist | DataViz Inc | 2019-2021
-    • Created interactive dashboards using Tableau and Power BI
-    • Performed statistical analysis and A/B testing
-    • Wrote complex SQL queries for data extraction and analysis
-    • Developed predictive models using scikit-learn and XGBoost
-
-    EDUCATION
-    M.S. in Computer Science | Stanford University | 2019
-    B.S. in Mathematics | MIT | 2017
-
-    CERTIFICATIONS
-    AWS Certified Solutions Architect
-    Google Professional Data Engineer
-    """
-    return io.BytesIO(sample_text.encode('utf-8'))
-
 # --- UI Layout ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/942/942748.png", width=60)
-    st.header("📂 Data Sources")
+    st.header("📂 Data Source")
     
-    # Check if we should use uploaded or pre-loaded data
-    use_preloaded = st.checkbox("Use sample data", value=True, help="Use pre-loaded sample data instead of uploading")
+    # اختيار مصدر البيانات
+    use_preloaded = st.checkbox(
+        "Use Sample Data", 
+        value=True, 
+        help="Use pre-loaded sample jobs dataset and resume"
+    )
     
     if not use_preloaded:
-        jobs_file = st.file_uploader("📂 Upload Jobs Dataset (CSV)", type="csv")
-        resume_file = st.file_uploader("📄 Upload Resume (PDF)", type="pdf")
+        st.markdown("---")
+        st.subheader("📤 Upload Your Data")
+        jobs_file = st.file_uploader("📂 Jobs Dataset (CSV)", type="csv")
+        resume_file = st.file_uploader("📄 Resume (PDF)", type="pdf")
     else:
         jobs_file = None
         resume_file = None
-        st.info("Using pre-loaded sample data")
+        st.success("✅ Using sample data (30 jobs + sample resume)")
+        st.info("📊 Sample resume: Data Scientist with ML/AI skills")
     
     st.markdown("---")
     st.header("⚙️ Settings")
     q_type = st.selectbox("Interview Question Type", ["mixed", "technical", "behavioral"])
     
     st.markdown("<br>", unsafe_allow_html=True)
-    run_btn = st.button("🚀 Analyze & Match", type="primary", use_container_width=True)
+    analyze_btn = st.button("🚀 Analyze & Match", type="primary", use_container_width=True)
 
 # Main Area
-if not run_btn:
-    # Display initial message with sample data option
+if not analyze_btn:
+    # عرض رسالة ترحيب
     st.markdown("""
-        <div style='text-align: center; padding: 100px 20px;'>
+        <div style='text-align: center; padding: 80px 20px;'>
             <img src='https://cdn-icons-png.flaticon.com/512/2065/2065157.png' width='120' style='opacity: 0.5; margin-bottom: 20px;'/>
-            <h2 style='color: #64748b;'>Ready to analyze your resume</h2>
+            <h2 style='color: #64748b;'>Ready to find your dream job</h2>
             <p style='color: #475569; font-size: 1.1rem;'>
-                Use the sidebar to choose between sample data or upload your own files, then click "Analyze & Match"
+                Choose your data source in the sidebar and click "Analyze & Match"
             </p>
         </div>
     """, unsafe_allow_html=True)
 else:
-    # Load data based on user selection
+    # --- تحميل البيانات حسب اختيار المستخدم ---
     with st.status("🔮 Analyzing Your Profile...", expanded=True) as status:
         try:
-            st.write("Loading AI Models...")
+            st.write("🔄 Loading AI Models...")
             nlp = load_spacy()
             sbert_model = load_sbert()
             q_tokenizer, q_model, DEVICE = load_flan_t5()
             
-            st.write("Processing Jobs Database...")
-            
-            # Load jobs data
-            if use_preloaded or jobs_file is None:
-                # Use sample jobs dataset
-                try:
-                    # Try to load from a sample jobs dataset
-                    # If you have a sample jobs dataset file, you can load it here
-                    # For now, let's create a sample jobs dataset
-                    sample_jobs = {
-                        'Title': [
-                            'Data Scientist',
-                            'Machine Learning Engineer',
-                            'Software Engineer',
-                            'Data Analyst',
-                            'DevOps Engineer'
-                        ],
-                        'Keywords': [
-                            'Python;SQL;Machine Learning;Deep Learning;NLP;PyTorch;TensorFlow;Docker;AWS',
-                            'Python;SQL;Machine Learning;Deep Learning;PyTorch;TensorFlow;Docker;Kubernetes;AWS;GCP',
-                            'Python;Java;C++;Git;Docker;Kubernetes;AWS;CI/CD;SQL;Microservices',
-                            'Python;SQL;Tableau;Power BI;Data Visualization;Statistics;Excel;R',
-                            'Python;AWS;Docker;Kubernetes;CI/CD;Linux;Terraform;Ansible;Jenkins'
-                        ]
-                    }
-                    jobs_df = pd.DataFrame(sample_jobs)
-                    resume_bytes = load_sample_resume()
-                except Exception as e:
-                    st.error(f"Error loading sample jobs data: {str(e)}")
-                    st.stop()
+            # --- تحميل البيانات (زي ما انت عاوزة بالظبط) ---
+            if use_preloaded:
+                st.write("📊 Loading sample jobs dataset...")
+                jobs_df = load_sample_jobs_data()
+                st.write("📄 Loading sample resume...")
+                resume_bytes = load_sample_resume()
             else:
-                # Load uploaded jobs dataset
+                # التحقق من رفع الملفات
+                if jobs_file is None or resume_file is None:
+                    st.error("❌ Please upload both a jobs dataset and a resume!")
+                    st.stop()
+                st.write("📊 Loading uploaded jobs dataset...")
                 jobs_df = pd.read_csv(jobs_file)
-                # Load uploaded resume
+                st.write("📄 Loading uploaded resume...")
                 resume_bytes = resume_file
             
+            # --- معالجة البيانات ---
             # Process skills
             skills_col = "Keywords" if "Keywords" in jobs_df.columns else "Skills" if "Skills" in jobs_df.columns else "skills"
             jobs_df['skills_list'] = jobs_df[skills_col].apply(parse_skills)
@@ -463,25 +523,36 @@ else:
             skill_vocab_embeddings = sbert_model.encode(all_skills, convert_to_tensor=True)
             matcher = build_matcher(nlp, all_skills)
 
-            st.write("Extracting details from Resume...")
-            resume_text = extract_text_from_pdf(resume_bytes)
+            st.write("📄 Extracting details from Resume...")
+            # قراءة محتوى الـ Resume
+            if isinstance(resume_bytes, io.BytesIO):
+                resume_text = extract_text_from_pdf(resume_bytes)
+            else:
+                # إذا كان ملف مرفوع
+                resume_text = extract_text_from_pdf(io.BytesIO(resume_bytes.getvalue()))
+            
             candidate_phrases = extract_candidate_phrases(resume_text, nlp, matcher)
             canonical_resume_skills = normalize_to_canonical_skills(candidate_phrases, all_skills, skill_vocab_embeddings, sbert_model, threshold=0.60)
             
-            st.write("Finding the perfect matches...")
+            st.write("🎯 Finding the perfect matches...")
             top3_df = recommend_top_jobs(canonical_resume_skills, jobs_df, sbert_model, top_n=3)
             
             status.update(label="Analysis Complete! ✨", state="complete", expanded=False)
             
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- عرض النتائج ---
+            if use_preloaded:
+                st.success(f"✅ Using sample data: {len(jobs_df)} jobs analyzed")
+            
             st.header("🏆 Your Top Job Matches")
             
-            # Step 3: Display Results
+            # Display Results
             for idx, row in top3_df.iterrows():
                 score_pct = int(row['hybrid_score'] * 100)
                 
-                matched_html = "".join([f'<span class="skill-badge matched-skill">{s}</span>' for s in row['matched_skills']])
-                missing_html = "".join([f'<span class="skill-badge missing-skill">{s}</span>' for s in row['missing_skills']])
+                matched_html = "".join([f'<span class="skill-badge matched-skill">{s}</span>' for s in row['matched_skills'][:10]])
+                missing_html = "".join([f'<span class="skill-badge missing-skill">{s}</span>' for s in row['missing_skills'][:10]])
                 
                 if not matched_html: matched_html = "<span style='color:#94a3b8;'>No exact matches found.</span>"
                 if not missing_html: missing_html = "<span style='color:#94a3b8;'>You have all required skills! 🎉</span>"
@@ -527,5 +598,5 @@ else:
                 st.markdown("<br><br>", unsafe_allow_html=True)
                 
         except Exception as e:
-            st.error(f"An error occurred during analysis: {str(e)}")
+            st.error(f"❌ An error occurred during analysis: {str(e)}")
             st.stop()
